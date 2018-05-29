@@ -35,7 +35,10 @@ wait_for_request() ->
     handle_request(receive Msg -> Msg end, []).
 
 handle_request({purge, Mod, From, Ref}, Reqs) when is_atom(Mod), is_pid(From) ->
-    {Res, NewReqs} = do_purge(Mod, Reqs),
+    {Time1, Res1} = tc(fun()-> do_purge(Mod, Reqs)
+                       end),
+    error_logger:info_msg("erts_code_purger:do_purge:mod:~p,time:~p~n",[Mod, Time1]),
+    {Res, NewReqs} = Res1,
     From ! {reply, purge, Res, Ref},
     check_requests(NewReqs);
 handle_request({soft_purge, Mod, From, Ref}, Reqs) when is_atom(Mod), is_pid(From) ->

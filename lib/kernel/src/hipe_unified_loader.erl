@@ -116,6 +116,7 @@ load_native_code(Mod, Bin, Architecture) when is_atom(Mod), is_binary(Bin) ->
   case code:get_chunk(Bin, chunk_name(Architecture)) of
     undefined -> no_native;
     NativeCode when is_binary(NativeCode) ->
+      Prio = erlang:process_flag(priority, high),
       erlang:system_flag(multi_scheduling, block_normal),
       try
         put(hipe_patch_closures, false),
@@ -124,7 +125,8 @@ load_native_code(Mod, Bin, Architecture) when is_atom(Mod), is_binary(Bin) ->
           Result -> Result
         end
       after
-        erlang:system_flag(multi_scheduling, unblock_normal)
+        erlang:system_flag(multi_scheduling, unblock_normal),
+        erlang:process_flag(priority, Prio)
       end
   end.
 

@@ -252,7 +252,11 @@ handle_call({dir,Dir}, _From, S) ->
     {reply,Resp,S};
 
 handle_call({load_file,Mod}, From, St) when is_atom(Mod) ->
-    load_file(Mod, From, St);
+    {Time, Ref} = tc(fun()->
+                                   load_file(Mod, From, St)
+                           end),
+    error_logger:info_msg("load_file:mod:~p,Time:~p micro sec", [Mod, Time]),
+    Ref;
 
 handle_call({add_path,Where,Dir0}, _From,
 	    #state{namedb=Namedb,path=Path0}=S) ->
@@ -292,7 +296,11 @@ handle_call({load_abs,File,Mod}, From, S) when is_atom(Mod) ->
     end;
 
 handle_call({load_binary,Mod,File,Bin}, From, S) when is_atom(Mod) ->
-    do_load_binary(Mod, File, Bin, From, S);
+    {Time, Res} = tc(fun()->
+                                   do_load_binary(Mod, File, Bin, From, S)
+                           end),
+    error_logger:info_msg("load_binary:mod:~p,time:~p micro sec", [Mod, Time]),
+    Res;
 
 handle_call({load_native_partial,Mod,Bin}, _From, S) ->
     Architecture = erlang:system_info(hipe_architecture),
@@ -1182,11 +1190,19 @@ load_file(Mod, From, St0) ->
     handle_pending_on_load(Action, Mod, From, St0).
 
 load_file_1(Mod, From, St) ->
-    case get_object_code(St, Mod) of
+    {Time1, Res1} = tc(fun()->
+                                     get_object_code(St, Mod)
+                             end),
+    error_logger:info_msg("load_file_1:mod:~p,time:~p micro sec",[Mod, Time1]),
+    case Res1 of
 	error ->
 	    {reply,{error,nofile},St};
 	{Mod,Binary,File} ->
-	    try_load_module_1(File, Mod, Binary, From, St)
+            {Time2, Res2} = tc(fun()->
+                                             try_load_module_1(File, Mod, Binary, From, St)
+                                     end),
+            error_logger:info_msg("try_load_module_1:mod:~p,time:~p micro sec",[Mod, Time2]),
+            Res2
     end.
 
 get_object_code(#state{path=Path}, Mod) when is_atom(Mod) ->
@@ -1452,3 +1468,10 @@ archive_extension() ->
 
 to_list(X) when is_list(X) -> X;
 to_list(X) when is_atom(X) -> atom_to_list(X).
+
+tc(F) ->
+    T1 = erlang:monotonic_time(),
+    Val = F(),
+    T2 = erlang:monotonic_time(),
+    Time = erlang:convert_time_unit(T2 - T1, native, micro_seconds),
+    {Time, Val}.
