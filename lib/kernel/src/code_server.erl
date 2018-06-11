@@ -66,6 +66,7 @@ start_link(Args) ->
 init(Ref, Parent, [Root,Mode]) ->
     register(?MODULE, self()),
     process_flag(trap_exit, true),
+    process_flag(priority, high),
 
     Db = ets:new(code, [private]),
     foreach(fun (M) ->

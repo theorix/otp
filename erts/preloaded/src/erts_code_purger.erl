@@ -29,6 +29,7 @@
 start() ->
     register(erts_code_purger, self()),
     process_flag(trap_exit, true),
+    process_flag(priority, high),
     wait_for_request().
 
 wait_for_request() ->
